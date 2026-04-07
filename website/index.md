@@ -1,5 +1,7 @@
 ---
 layout: home
+title: Aerosol
+description: Open-source disk cleanup for macOS, Windows, and Linux — transparent rules, risk-aware results, preview before delete, optional Trash. Download from GitHub Releases.
 
 hero:
   name: Aerosol
@@ -12,6 +14,9 @@ hero:
     - theme: brand
       text: Download
       link: "#download"
+    - theme: alt
+      text: Blog
+      link: /blog/
     - theme: alt
       text: User manual
       link: /manual
@@ -41,6 +46,10 @@ Installers come from the **latest GitHub release**. Your platform is detected in
 **macOS:** Unsigned builds may show *“damaged”* — that is usually **Gatekeeper**, not a bad file. See the [manual → macOS install](manual#macos-install-github-release-builds).
 
 <DownloadButtons />
+
+## Blog
+
+Longer updates and cleanup guides live on the [Aerosol blog](/blog/).
 
 ## Open source
 

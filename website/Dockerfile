@@ -16,7 +16,7 @@ ARG VITE_ASSET_LINUX_APPIMAGE=
 ARG VITE_SITE_URL=https://aerosol.januscaler.com
 
 RUN if [ -n "$VITE_GITHUB_REPO" ]; then \
-  for f in index.md compare.md; do \
+  for f in index.md compare.md blog/*.md; do \
     if [ -f "$f" ]; then \
       sed -i "s#https://github.com/januscaler/aerosol#https://github.com/${VITE_GITHUB_REPO}#g" "$f"; \
     fi; \
