@@ -114,4 +114,6 @@ The public site (landing, manual, comparison page, download buttons) lives in **
 
 ## License
 
-Rust crates declare **MIT** in workspace metadata ([`Cargo.toml`](Cargo.toml)). Add a root `LICENSE` file if you publish the repo so terms are explicit.
+**MIT** — see [`LICENSE`](LICENSE) in the repo root. Same terms apply to the Rust workspace ([`Cargo.toml`](Cargo.toml)) and the web/UI code.
+
+**TL;DR (e.g. for Reddit):** you can use, change, and redistribute Aerosol freely, including in commercial projects, as long as you include a copy of the MIT license notice with substantial portions of the code. The software is provided as-is, without warranty. Source: [github.com/januscaler/aerosol](https://github.com/januscaler/aerosol).
