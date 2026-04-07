@@ -2,6 +2,13 @@
 
 [VitePress](https://vitepress.dev/) powers the landing page, user manual, and comparison doc. Content lives in Markdown at the repo root of `website/`; theme tweaks live under `.vitepress/`.
 
+**Canonical URLs**
+
+- **Repository:** [github.com/januscaler/aerosol](https://github.com/januscaler/aerosol)  
+- **Production site:** [aerosol.januscaler.com](https://aerosol.januscaler.com) (set at build time via `VITE_SITE_URL` or the Actions variable `WEBSITE_PUBLIC_URL`)
+
+`public/CNAME` contains `aerosol.januscaler.com` so [GitHub Pages custom domains](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site) work if you deploy from `gh-pages`.
+
 ## Local development
 
 ```bash
@@ -22,7 +29,8 @@ Output: `website/.vitepress/dist/`. Test with `npm run preview`.
 
 Optional build-time environment variables (see `.env.example`):
 
-- `VITE_GITHUB_REPO` — `owner/repo` for release URLs (also used by `.vitepress/config.ts` for the nav GitHub icon when set at build time).
+- `VITE_GITHUB_REPO` — defaults to `januscaler/aerosol` (release URLs + nav GitHub icon).
+- `VITE_SITE_URL` — defaults to `https://aerosol.januscaler.com` (footer + `og:url` meta).
 - `VITE_RELEASE_TAG` — tag to append to `.../releases/download/<tag>/...` (e.g. `v0.2.0`).
 - `VITE_ASSET_MAC_DMG`, `VITE_ASSET_WIN`, `VITE_ASSET_LINUX_APPIMAGE` — exact filenames attached to that release.
 
@@ -42,15 +50,18 @@ Build context is the `website/` folder. **VitePress only produces static files**
 
 ```bash
 docker build \
-  --build-arg VITE_GITHUB_REPO=your-org/aerosol \
-  -t yourdockerhub/aerosol-website:latest .
+  --build-arg VITE_GITHUB_REPO=januscaler/aerosol \
+  --build-arg VITE_SITE_URL=https://aerosol.januscaler.com \
+  -t januscaler/aerosol-website:latest .
 ```
+
+Put **TLS and the hostname** on a reverse proxy (e.g. Caddy or nginx on the host) in front of this container’s port **80**, or terminate TLS in your cloud load balancer, with DNS **A/AAAA** or **CNAME** for `aerosol.januscaler.com` pointing at that host.
 
 Tag releases can also push this image: set repository variable **`PUSH_DOCKER_ON_RELEASE`** to `true` and configure **`DOCKERHUB_USERNAME`** / **`DOCKERHUB_TOKEN`** secrets (see `.github/workflows/release-tauri.yml`).
 
 ## Deploy with Compose
 
-Use `docker-compose.yaml` or `im-docker-compose.yaml` (same content). Set `DOCKERHUB_USER` to your Docker Hub username, then:
+Use `docker-compose.yaml` or `im-docker-compose.yaml`. Default image is `januscaler/aerosol-website:latest`; override with `DOCKERHUB_USER` if needed, then:
 
 ```bash
 docker compose -f im-docker-compose.yaml pull && docker compose -f im-docker-compose.yaml up -d

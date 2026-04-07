@@ -2,6 +2,9 @@
 
 **Aerosol** is a desktop disk utility for **macOS**, **Windows**, and **Linux**. It scans common clutter (caches, logs, package managers, developer artifacts), classifies findings with **risk levels**, and lets you **preview** or **clean** in batches — with optional **Trash** instead of permanent delete. Everything runs **on your machine**; there is no cloud account or upload of your file list.
 
+- **Source:** [github.com/januscaler/aerosol](https://github.com/januscaler/aerosol)  
+- **Public docs / landing:** [aerosol.januscaler.com](https://aerosol.januscaler.com)
+
 |        | Stack |
 | ------ | ----- |
 | UI     | [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) + [Tailwind CSS](https://tailwindcss.com/) + [Vite](https://vitejs.dev/) |
@@ -64,7 +67,7 @@ Installers and bundles appear under `src-tauri/target/release/bundle/` (exact la
 
 ## Documentation & marketing site
 
-The public site (landing, manual, comparison page, download buttons) lives in **`website/`**. See [`website/README.md`](website/README.md) for VitePress and Docker deployment.
+The public site (landing, manual, comparison page, download buttons) lives in **`website/`**. It is intended to be served at **https://aerosol.januscaler.com** (Docker/Caddy in-repo, or any static host). See [`website/README.md`](website/README.md) for deployment details.
 
 ## CI releases (GitHub Actions)
 

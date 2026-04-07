@@ -129,6 +129,7 @@ jobs:
           VITE_GITHUB_REPO: ${{ github.repository }}
           VITE_APP_VERSION: ${{ steps.ver.outputs.semver }}
           VITE_RELEASE_TAG: ${{ github.ref_name }}
+          VITE_SITE_URL: ${{ vars.WEBSITE_PUBLIC_URL || 'https://aerosol.januscaler.com' }}
           VITE_ASSET_MAC_DMG: ${{ steps.installers.outputs.mac_dmg }}
           VITE_ASSET_WIN: ${{ steps.installers.outputs.win_installer }}
           VITE_ASSET_LINUX_APPIMAGE: ${{ steps.installers.outputs.linux_appimage }}
@@ -198,6 +199,7 @@ jobs:
             VITE_GITHUB_REPO=${{ github.repository }}
             VITE_APP_VERSION=${{ steps.ver.outputs.semver }}
             VITE_RELEASE_TAG=${{ github.ref_name }}
+            VITE_SITE_URL=${{ vars.WEBSITE_PUBLIC_URL || 'https://aerosol.januscaler.com' }}
             VITE_ASSET_MAC_DMG=${{ steps.installers.outputs.mac_dmg }}
             VITE_ASSET_WIN=${{ steps.installers.outputs.win_installer }}
             VITE_ASSET_LINUX_APPIMAGE=${{ steps.installers.outputs.linux_appimage }}

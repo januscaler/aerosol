@@ -13,11 +13,12 @@ ARG VITE_RELEASE_TAG=
 ARG VITE_ASSET_MAC_DMG=
 ARG VITE_ASSET_WIN=
 ARG VITE_ASSET_LINUX_APPIMAGE=
+ARG VITE_SITE_URL=https://aerosol.januscaler.com
 
 RUN if [ -n "$VITE_GITHUB_REPO" ]; then \
   for f in index.md compare.md; do \
     if [ -f "$f" ]; then \
-      sed -i "s#https://github.com/aerosol/aerosol#https://github.com/${VITE_GITHUB_REPO}#g" "$f"; \
+      sed -i "s#https://github.com/januscaler/aerosol#https://github.com/${VITE_GITHUB_REPO}#g" "$f"; \
     fi; \
   done; \
 fi
@@ -28,6 +29,7 @@ ENV VITE_RELEASE_TAG=$VITE_RELEASE_TAG
 ENV VITE_ASSET_MAC_DMG=$VITE_ASSET_MAC_DMG
 ENV VITE_ASSET_WIN=$VITE_ASSET_WIN
 ENV VITE_ASSET_LINUX_APPIMAGE=$VITE_ASSET_LINUX_APPIMAGE
+ENV VITE_SITE_URL=$VITE_SITE_URL
 
 RUN npm run build
 

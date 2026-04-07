@@ -1,7 +1,7 @@
 # Deploy: copy this folder or set image to your Docker Hub name.
 services:
   aerosol-www:
-    image: ${DOCKERHUB_USER:-yourdockerhub}/aerosol-website:latest
+    image: ${DOCKERHUB_USER:-januscaler}/aerosol-website:latest
     ports:
       - "${WEB_PORT:-8080}:80"
     restart: unless-stopped

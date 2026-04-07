@@ -18,7 +18,7 @@ const os = ref<OsKind>("unknown");
 const releasesLatest = computed(() => {
   const r = env.VITE_GITHUB_REPO as string | undefined;
   if (r?.includes("/")) return `https://github.com/${r}/releases/latest`;
-  return "https://github.com/aerosol/aerosol/releases/latest";
+  return "https://github.com/januscaler/aerosol/releases/latest";
 });
 
 function assetUrl(filename: string | undefined): string | null {

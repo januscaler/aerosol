@@ -1,7 +1,9 @@
 # Same as docker-compose.yaml — alternate filename for quick server deploys.
+# Set DOCKERHUB_USER if your Docker Hub username is not januscaler.
 services:
   aerosol-www:
-    image: shivanshtalwar0/aerosol-website:latest
+    image: ${DOCKERHUB_USER:-januscaler}/aerosol-website:latest
+    pull_policy: always
     ports:
       - "${WEB_PORT:-3131}:80"
     restart: unless-stopped

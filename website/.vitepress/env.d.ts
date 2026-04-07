@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_ASSET_MAC_DMG?: string;
   readonly VITE_ASSET_WIN?: string;
   readonly VITE_ASSET_LINUX_APPIMAGE?: string;
+  /** Canonical public URL (footer, og:url). Default https://aerosol.januscaler.com */
+  readonly VITE_SITE_URL?: string;
 }
 
 interface ImportMeta {

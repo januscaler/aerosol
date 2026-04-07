@@ -42,4 +42,4 @@ Desktop builds are published on GitHub Releases. We highlight a suggested platfo
 
 ## Open source
 
-Inspect the scanner, rules, and UI on [GitHub](https://github.com/aerosol/aerosol). Issues and contributions welcome.
+Inspect the scanner, rules, and UI on [GitHub](https://github.com/januscaler/aerosol). Issues and contributions welcome.

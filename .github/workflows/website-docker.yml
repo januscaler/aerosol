@@ -55,3 +55,4 @@ jobs:
             VITE_GITHUB_REPO=${{ github.repository }}
             VITE_APP_VERSION=${{ steps.webver.outputs.version }}
             VITE_RELEASE_TAG=${{ github.ref_type == 'tag' && github.ref_name || '' }}
+            VITE_SITE_URL=${{ vars.WEBSITE_PUBLIC_URL || 'https://aerosol.januscaler.com' }}
