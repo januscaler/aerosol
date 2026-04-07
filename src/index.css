@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* Light (default) */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-muted: #f0f1f4;
+  --text: #14161a;
+  --muted: #5a6169;
+  --border: #dfe3e8;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+  --tab-bg: rgb(226 232 240 / 0.85);
+  --tab-active: #ffffff;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
+  --risk-safe-bg: #dcfce7;
+  --risk-safe-text: #166534;
+  --risk-review-bg: #fef3c7;
+  --risk-review-text: #92400e;
+  --risk-danger-bg: #fee2e2;
+  --risk-danger-text: #991b1b;
+  --progress-track: #e2e8f0;
+  --progress-fill: var(--accent);
+  --mono-muted: #94a3b8;
+  --selected-row-bg: rgb(37 99 235 / 0.09);
+  --selected-row-border: rgb(37 99 235 / 0.55);
+  --btn-primary-text: #ffffff;
+  --btn-clean-bg: #c2410c;
+  --btn-clean-hover: #9a3412;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1117;
+  --surface: #181b22;
+  --surface-muted: #22262e;
+  --text: #e8eaef;
+  --muted: #9aa3af;
+  --border: #2d3340;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  --tab-bg: rgb(30 41 59 / 0.6);
+  --tab-active: #1e293b;
+  --danger-bg: rgb(127 29 29 / 0.25);
+  --danger-border: rgb(185 28 28 / 0.45);
+  --danger-text: #fecaca;
+  --risk-safe-bg: rgb(20 83 45 / 0.55);
+  --risk-safe-text: #bbf7d0;
+  --risk-review-bg: rgb(120 53 15 / 0.45);
+  --risk-review-text: #fde68a;
+  --risk-danger-bg: rgb(127 29 29 / 0.45);
+  --risk-danger-text: #fecaca;
+  --progress-track: #2d3340;
+  --progress-fill: var(--accent);
+  --mono-muted: #64748b;
+  --selected-row-bg: rgb(59 130 246 / 0.18);
+  --selected-row-border: rgb(96 165 250 / 0.65);
+  --btn-primary-text: #ffffff;
+  --btn-clean-bg: #ea580c;
+  --btn-clean-hover: #f97316;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}

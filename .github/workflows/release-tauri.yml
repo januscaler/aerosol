@@ -1,0 +1,203 @@
+name: Release — desktop + VitePress site
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          export VERSION
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          node <<'NODE'
+          const fs = require("fs");
+          const v = process.env.VERSION;
+          const p = "src-tauri/tauri.conf.json";
+          const j = JSON.parse(fs.readFileSync(p, "utf8"));
+          j.version = v;
+          fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+          let c = fs.readFileSync("src-tauri/Cargo.toml", "utf8");
+          c = c.replace(/^version = "[^"]+"/m, `version = "${v}"`);
+          fs.writeFileSync("src-tauri/Cargo.toml", c);
+          NODE
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Build and upload bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Aerosol ${{ github.ref_name }}
+          releaseBody: |
+            Desktop installers for this tag. After all jobs finish, the workflow attaches **aerosol-website.zip**
+            (VitePress site with direct download buttons) and may update the `gh-pages` branch.
+
+            | Platform | Typical artifact |
+            |----------|------------------|
+            | macOS | `.dmg` (Apple Silicon and/or Intel) |
+            | Windows | `.msi` or `.exe` |
+            | Linux | `.AppImage` |
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: false
+          args: ${{ matrix.args }}
+
+  build-website:
+    name: Build VitePress site (inject download URLs)
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from tag
+        id: ver
+        run: echo "semver=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve installer filenames from release
+        id: installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/resolve-release-installers.sh "${{ github.repository }}" "${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website deps & build
+        working-directory: website
+        env:
+          VITE_GITHUB_REPO: ${{ github.repository }}
+          VITE_APP_VERSION: ${{ steps.ver.outputs.semver }}
+          VITE_RELEASE_TAG: ${{ github.ref_name }}
+          VITE_ASSET_MAC_DMG: ${{ steps.installers.outputs.mac_dmg }}
+          VITE_ASSET_WIN: ${{ steps.installers.outputs.win_installer }}
+          VITE_ASSET_LINUX_APPIMAGE: ${{ steps.installers.outputs.linux_appimage }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Pack static site
+        run: (cd website/.vitepress/dist && zip -r "$GITHUB_WORKSPACE/aerosol-website.zip" .)
+
+      - name: Upload site bundle to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" aerosol-website.zip --clobber
+
+      - name: Deploy to GitHub Pages
+        if: ${{ !github.event.repository.fork }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: website/.vitepress/dist
+          force_orphan: true
+
+  # Optional: set repository variable PUSH_DOCKER_ON_RELEASE=true and configure DOCKERHUB_* secrets.
+  docker-website:
+    name: Push website image (Docker Hub)
+    needs: build-website
+    if: ${{ github.ref_type == 'tag' && vars.PUSH_DOCKER_ON_RELEASE == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse version from tag
+        id: ver
+        run: echo "semver=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve installer filenames from release
+        id: installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/resolve-release-installers.sh "${{ github.repository }}" "${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker Hub login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/aerosol-website
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ github.ref_name }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./website
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_GITHUB_REPO=${{ github.repository }}
+            VITE_APP_VERSION=${{ steps.ver.outputs.semver }}
+            VITE_RELEASE_TAG=${{ github.ref_name }}
+            VITE_ASSET_MAC_DMG=${{ steps.installers.outputs.mac_dmg }}
+            VITE_ASSET_WIN=${{ steps.installers.outputs.win_installer }}
+            VITE_ASSET_LINUX_APPIMAGE=${{ steps.installers.outputs.linux_appimage }}

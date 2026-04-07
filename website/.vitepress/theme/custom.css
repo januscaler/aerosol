@@ -1,0 +1,61 @@
+/* Slightly warmer dark accent; keep VitePress default structure. */
+:root {
+  --vp-c-brand-1: #5eb8ff;
+  --vp-c-brand-2: #3d9ee6;
+  --vp-c-brand-3: #2d7ab8;
+}
+
+.vp-doc a {
+  text-decoration: none;
+}
+
+.vp-doc a:hover {
+  text-decoration: underline;
+}
+
+.download-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-top: 1rem;
+}
+
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  text-decoration: none !important;
+  color: var(--vp-button-brand-text) !important;
+  background-color: var(--vp-button-brand-bg);
+  transition: background-color 0.2s;
+}
+
+.dl-btn:hover {
+  background-color: var(--vp-button-brand-hover);
+}
+
+.download-hint {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+}
+
+.badge-suggested {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  margin-right: 0.35rem;
+  background: color-mix(in srgb, var(--vp-c-green-1) 22%, transparent);
+  color: var(--vp-c-green-1);
+  font-weight: 700;
+  vertical-align: middle;
+}

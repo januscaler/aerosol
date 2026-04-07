@@ -1,0 +1,57 @@
+name: Website — Docker Hub
+
+# Tag builds are handled by release-tauri.yml (installers + VitePress + optional Docker).
+# This workflow rebuilds the image when website sources change on the default branch.
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "website/**"
+      - ".github/workflows/website-docker.yml"
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: aerosol-website
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read website version
+        id: webver
+        run: echo "version=$(node -p "require('./website/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Docker Hub login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha,prefix=commit-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./website
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_GITHUB_REPO=${{ github.repository }}
+            VITE_APP_VERSION=${{ steps.webver.outputs.version }}
+            VITE_RELEASE_TAG=${{ github.ref_type == 'tag' && github.ref_name || '' }}
