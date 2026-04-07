@@ -28,6 +28,15 @@ jobs:
         id: webver
         run: echo "version=$(node -p "require('./website/package.json').version")" >> "$GITHUB_OUTPUT"
 
+      - name: Write latest-release.json for download page
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh api "repos/${{ github.repository }}/releases/latest" \
+            --jq '{tag_name: .tag_name, html_url: .html_url, published_at: .published_at, assets: [.assets[] | {name, browser_download_url, size}]}' \
+            > website/public/latest-release.json
+
       - name: Docker Hub login
         uses: docker/login-action@v3
         with:

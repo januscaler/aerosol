@@ -65,6 +65,10 @@ npm run tauri build
 
 Installers and bundles appear under `src-tauri/target/release/bundle/` (exact layout depends on OS and Tauri bundle settings in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json)).
 
+### macOS: “damaged” or can’t open (unsigned builds)
+
+GitHub Actions builds are **not** notarized. On **Apple Silicon**, use the **aarch64** `.dmg`. If macOS says the app is **damaged**, that is usually **Gatekeeper** — see the [user manual](website/manual.md#macos-install-github-release-builds) (`xattr -cr`, **Open Anyway**, or right-click **Open**). For distribution without warnings, set up **Developer ID signing + notarization** ([Tauri docs](https://v2.tauri.app/distribute/sign/macos/)).
+
 ## Documentation & marketing site
 
 The public site (landing, manual, comparison page, download buttons) lives in **`website/`**. It is intended to be served at **https://aerosol.januscaler.com** (Docker/Caddy in-repo, or any static host). See [`website/README.md`](website/README.md) for deployment details.

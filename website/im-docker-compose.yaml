@@ -2,7 +2,7 @@
 # Set DOCKERHUB_USER if your Docker Hub username is not januscaler.
 services:
   aerosol-www:
-    image: ${DOCKERHUB_USER:-januscaler}/aerosol-website:latest
+    image: shivanshtalwar0/aerosol-website:latest
     pull_policy: always
     ports:
       - "${WEB_PORT:-3131}:80"

@@ -17,6 +17,33 @@ npm install
 npm run dev
 ```
 
+The download section first requests **`/latest-release.json`** (same origin). That file is **gitignored** and normally produced in CI. To test real download buttons locally:
+
+```bash
+cd website
+npm run fetch:latest-release
+npm run dev
+```
+
+- Uses the public GitHub API for `VITE_GITHUB_REPO` (default `januscaler/aerosol`) or pass another repo:  
+  `npm run fetch:latest-release -- yourfork/aerosol`
+- If you hit **rate limits**, set **`GITHUB_TOKEN`** or **`GH_TOKEN`** (no `repo` scope needed for public releases).
+
+Fully **offline** UI smoke test (placeholder URLs — good for layout only):
+
+```bash
+npm run stub:latest-release
+npm run dev
+```
+
+Equivalent with the GitHub CLI (matches CI):
+
+```bash
+gh api repos/januscaler/aerosol/releases/latest \
+  --jq '{tag_name: .tag_name, html_url: .html_url, published_at: .published_at, assets: [.assets[] | {name, browser_download_url, size}]}' \
+  > public/latest-release.json
+```
+
 ## Production build
 
 ```bash
@@ -39,10 +66,12 @@ Optional build-time environment variables (see `.env.example`):
 Pushing a git tag `v*` runs **`.github/workflows/release-tauri.yml`**, which:
 
 1. Builds macOS (Apple Silicon + Intel), Windows, and Linux bundles and uploads them to a GitHub Release for that tag.
-2. Re-queries the release for `.dmg` / `.msi` (or `.exe`) / `.AppImage` names and rebuilds this site with those values baked in.
-3. Uploads **`aerosol-website.zip`** to the same release and deploys the static site to the **`gh-pages`** branch (enable **Pages → Deploy from branch → gh-pages** in repo settings).
+2. Writes **`public/latest-release.json`** (from the GitHub API) so the download section can use **same-origin** links to real asset URLs without relying on browser CORS to `api.github.com`.
+3. Rebuilds the site (including optional `VITE_ASSET_*` env for Docker) and uploads **`aerosol-website.zip`**, then deploys **`gh-pages`** if enabled.
 
-If assets are not set (local build), buttons fall back to the latest releases page; the Vue component still highlights a suggested platform from the visitor’s browser.
+**`.github/workflows/website-docker.yml`** also refreshes `latest-release.json` before building the image so Docker-hosted sites get the same behaviour.
+
+Locally, if `latest-release.json` is missing, the UI tries the **GitHub API** from the browser, then build-time **`VITE_ASSET_*`** env vars (see `.env.example`), then falls back to a link to **releases/latest** with OS-specific hints. Prefer **`npm run fetch:latest-release`** so behaviour matches production (same-origin JSON).
 
 ## Docker
 

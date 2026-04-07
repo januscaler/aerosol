@@ -93,6 +93,8 @@ jobs:
             | macOS | `.dmg` (Apple Silicon and/or Intel) |
             | Windows | `.msi` or `.exe` |
             | Linux | `.AppImage` |
+
+            **macOS:** Builds are **not notarized**. On **Apple Silicon**, use the **aarch64** `.dmg`. If you see *“Aerosol is damaged”*, that is usually **Gatekeeper** — [fix in the manual](https://aerosol.januscaler.com/manual#macos-install-github-release-builds) (e.g. `xattr -cr /Applications/Aerosol.app` or right-click → **Open**).
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: false
@@ -115,6 +117,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash .github/scripts/resolve-release-installers.sh "${{ github.repository }}" "${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Write latest-release.json for download page (same-origin fetch in browser)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh api "repos/${{ github.repository }}/releases/latest" \
+            --jq '{tag_name: .tag_name, html_url: .html_url, published_at: .published_at, assets: [.assets[] | {name, browser_download_url, size}]}' \
+            > website/public/latest-release.json
 
       - name: Setup Node
         uses: actions/setup-node@v4

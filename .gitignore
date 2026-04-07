@@ -35,6 +35,9 @@ website/.env
 website/.env.*
 !website/.env.example
 
+# Generated in CI from GitHub API; copied into the static site for download links.
+website/public/latest-release.json
+
 # VitePress under other paths in the future
 **/.vitepress/dist/
 **/.vitepress/cache/

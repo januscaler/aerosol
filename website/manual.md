@@ -7,6 +7,26 @@ description: How to run a scan, read results, and clean up safely with Aerosol.
 
 How to run a scan, read results, and clean up safely.
 
+## macOS install (GitHub release builds)
+
+**Apple Silicon (M1 / M2 / M3)** — download the **aarch64** or **arm64** `.dmg` from the [latest release](https://github.com/januscaler/aerosol/releases/latest), not the **x86_64** one (that build is for Intel Macs).
+
+### “Aerosol” is damaged and can’t be opened
+
+That message usually means **Gatekeeper** blocked an **unsigned** app (it is often **not** a corrupted download). Try, in order:
+
+1. **Right-click** `Aerosol.app` → **Open** → confirm **Open** (first launch only).
+2. **System Settings** → **Privacy & Security** → scroll to the message about Aerosol → **Open Anyway**.
+3. In **Terminal**, clear the download quarantine flag (after copying the app to **Applications**):
+
+   ```bash
+   xattr -cr /Applications/Aerosol.app
+   ```
+
+   If you are still running from the mounted `.dmg`, use the path to the `.app` inside the disk image instead.
+
+For a build that is trusted system-wide without those steps, the publisher must use an **Apple Developer ID** certificate and **notarization** ([Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/)).
+
 ## First launch
 
 Open the app and review **Settings** if you want to change scan scope, extra roots, or time budget. Defaults favor a quick, practical pass over your home (and related) locations.

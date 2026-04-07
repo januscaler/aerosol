@@ -36,7 +36,9 @@ features:
 
 ## Download
 
-Desktop builds are published on GitHub Releases. We highlight a suggested platform from your browser when possible.
+Installers come from the **latest GitHub release**. Your platform is detected in the browser; the big button is the best match (for example the **Apple Silicon** `.dmg` on M1/M2/M3 — not the x86_64 disk image).
+
+**macOS:** Unsigned builds may show *“damaged”* — that is usually **Gatekeeper**, not a bad file. See the [manual → macOS install](manual#macos-install-github-release-builds).
 
 <DownloadButtons />
 
