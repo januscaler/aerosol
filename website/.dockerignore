@@ -1,6 +1,5 @@
 node_modules
-dist
 .git
-*.md
 .env
 .env.*
+# Do NOT ignore *.md — VitePress sources (index.md, manual.md, compare.md) must be in the build context.

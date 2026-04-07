@@ -38,7 +38,7 @@ If assets are not set (local build), buttons fall back to the latest releases pa
 
 ## Docker
 
-Build context is the `website/` folder. The image runs `vitepress build` and serves `.vitepress/dist` with nginx.
+Build context is the `website/` folder. **VitePress only produces static files** (`html`, `js`, `css`); the image still needs a tiny web server to answer HTTP. The final stage uses **[Caddy](https://caddyserver.com/)** (~50MB) with a short `Caddyfile` (`try_files` for extensionless URLs like `/manual` → `manual.html`), not nginx.
 
 ```bash
 docker build \

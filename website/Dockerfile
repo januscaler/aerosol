@@ -1,4 +1,4 @@
-# VitePress static site — nginx serves `.vitepress/dist`
+# Build VitePress → serve static files with Caddy (no separate nginx layer).
 FROM node:22-alpine AS build
 WORKDIR /app
 
@@ -14,7 +14,6 @@ ARG VITE_ASSET_MAC_DMG=
 ARG VITE_ASSET_WIN=
 ARG VITE_ASSET_LINUX_APPIMAGE=
 
-# Markdown links still use a placeholder repo URL; rewrite when building for your fork.
 RUN if [ -n "$VITE_GITHUB_REPO" ]; then \
   for f in index.md compare.md; do \
     if [ -f "$f" ]; then \
@@ -32,7 +31,7 @@ ENV VITE_ASSET_LINUX_APPIMAGE=$VITE_ASSET_LINUX_APPIMAGE
 
 RUN npm run build
 
-FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/.vitepress/dist /usr/share/nginx/html
+FROM caddy:2-alpine
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/.vitepress/dist /srv
 EXPOSE 80

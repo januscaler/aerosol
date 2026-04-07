@@ -1,0 +1,10 @@
+# Static VitePress output: extensionless URLs (/manual) → manual.html
+:80 {
+	root * /srv
+	encode gzip
+
+	handle {
+		try_files {path} {path}/ {path}.html /index.html
+		file_server
+	}
+}

@@ -5,7 +5,8 @@ set -euo pipefail
 REPO="${1:?owner/repo}"
 TAG="${2:?tag name e.g. v0.1.0}"
 
-NAMES=$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq -r '.assets[].name')
+# gh api --jq only accepts one expression; do not pass jq's -r there ("accepts 1 arg(s), received 2").
+NAMES=$(gh api "repos/${REPO}/releases/tags/${TAG}" | jq -r '.assets // [] | .[] | .name')
 
 pick_dmg() {
   local line
