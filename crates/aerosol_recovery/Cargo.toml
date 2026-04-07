@@ -1,0 +1,14 @@
+[package]
+name = "aerosol_recovery"
+version = "0.1.0"
+description = "File recovery: volume listing, signature carving, read-only scans, safe copy-out"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+memmap2 = "0.9"
+rayon = "1.10"
+serde = { version = "1", features = ["derive"] }
+sysinfo = "0.32"
+thiserror = "2"
+walkdir = "2"

@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/aerosol_core", "crates/aerosol_cli", "src-tauri"]
+members = [
+    "crates/aerosol_core",
+    "crates/aerosol_recovery",
+    "crates/aerosol_cli",
+    "src-tauri",
+]
 
 [workspace.package]
 edition = "2021"

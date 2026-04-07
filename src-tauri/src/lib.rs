@@ -1,3 +1,5 @@
+mod recovery_bridge;
+
 use aerosol_core::cleanup;
 use tauri::Emitter;
 use aerosol_core::duplicates::find_duplicates;
@@ -372,8 +374,11 @@ fn run_duplicate_check(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(ScanCoordinator::new())
         .manage(ScanFindingsCache::new())
+        .manage(recovery_bridge::RecoveryCoordinator::new())
+        .manage(recovery_bridge::RecoveryHitsCache::new())
         .invoke_handler(tauri::generate_handler![
             list_plugins,
             default_scan_options,
@@ -384,6 +389,12 @@ pub fn run() {
             prune_scan_after_cleanup,
             run_cleanup,
             run_duplicate_check,
+            recovery_bridge::recovery_list_volumes,
+            recovery_bridge::recovery_run_scan,
+            recovery_bridge::recovery_cancel_scan,
+            recovery_bridge::recovery_hits_page,
+            recovery_bridge::recovery_hits_len,
+            recovery_bridge::recovery_recover_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

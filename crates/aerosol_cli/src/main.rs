@@ -2,7 +2,9 @@ use aerosol_core::analyzer::format_bytes;
 use aerosol_core::duplicates::find_duplicates;
 use aerosol_core::engine;
 use aerosol_core::cleanup;
-use aerosol_core::types::{CleanRequest, ScanOptions};
+use aerosol_core::types::{
+    CleanRequest, ScanOptions, DEFAULT_CLEANUP_PARALLELISM, MAX_CLEANUP_PARALLELISM,
+};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
@@ -32,6 +34,9 @@ enum Commands {
         dry_run: bool,
         #[arg(long, default_value_t = true)]
         trash: bool,
+        /// Concurrent delete/trash jobs (1–1000)
+        #[arg(long, default_value_t = DEFAULT_CLEANUP_PARALLELISM)]
+        parallel: u32,
     },
     /// Find duplicate files among large file paths from a JSON lines file (paths only)
     Duplicates {
@@ -69,11 +74,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             paths,
             dry_run,
             trash,
+            parallel,
         } => {
             let req = CleanRequest {
                 paths: paths.iter().map(|p| p.to_string_lossy().to_string()).collect(),
                 dry_run,
                 use_trash: trash,
+                cleanup_parallelism: parallel.max(1).min(MAX_CLEANUP_PARALLELISM),
             };
             let out = cleanup::clean(req)?;
             println!("{}", serde_json::to_string_pretty(&out)?);

@@ -3,7 +3,11 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { APP_DISPLAY_NAME, APP_VERSION } from "./appMeta";
 import { formatBytes } from "./format";
+import { RecoveryView } from "./RecoveryView";
 import {
+  CLEANUP_PARALLELISM_MAX,
+  clampCleanupParallelism,
+  loadRecoveryPrefs,
   loadScanPatch,
   loadTheme,
   loadUiPrefs,
@@ -12,6 +16,8 @@ import {
   saveScanPatch,
   saveTheme,
   saveUiPrefs,
+  setRecoveryPrefs,
+  type RecoveryPrefs,
   type ScanSettingsPatch,
   type ThemeChoice,
 } from "./persistedSettings";
@@ -27,6 +33,8 @@ import type {
 } from "./types";
 
 type FilterTab = "all" | "safe" | "review";
+
+type AppMode = "cleanup" | "recovery";
 
 const LIST_PAGE_SIZE = 100;
 const SAFE_PATHS_PAGE = 2000;
@@ -220,22 +228,27 @@ export default function App() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [dryRun, setDryRun] = useState(true);
   const [useTrash, setUseTrash] = useState(true);
+  const [cleanupParallelism, setCleanupParallelism] = useState(() => loadUiPrefs().cleanup_parallelism);
   const [cleanResult, setCleanResult] = useState<CleanResult | null>(null);
   const [dupes, setDupes] = useState<DuplicateGroup[] | null>(null);
   const [dupBusy, setDupBusy] = useState(false);
   const [progress, setProgress] = useState<ScanProgressPayload | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsPanel, setSettingsPanel] = useState<"preferences" | "help" | "about">("preferences");
+  const [settingsPanel, setSettingsPanel] = useState<
+    "preferences" | "recovery" | "help" | "about"
+  >("preferences");
   const [bulkSafeBusy, setBulkSafeBusy] = useState(false);
   const [cleanBusy, setCleanBusy] = useState(false);
   const [cleanProgress, setCleanProgress] = useState<CleanupProgressPayload | null>(null);
   /** Ignore progress events that arrive after the scan command has finished (ordering glitches). */
   const scanBusyRef = useRef(false);
 
+  const [appMode, setAppMode] = useState<AppMode>("cleanup");
   const [themeChoice, setThemeChoice] = useState<ThemeChoice>(() => loadTheme());
   const [draftPatch, setDraftPatch] = useState<ScanSettingsPatch>(() => loadScanPatch());
   const [extraRootsText, setExtraRootsText] = useState("");
   const [draftUi, setDraftUi] = useState(() => loadUiPrefs());
+  const [draftRecovery, setDraftRecovery] = useState<RecoveryPrefs>(() => loadRecoveryPrefs());
 
   useEffect(() => {
     if (!settingsOpen || !options) return;
@@ -254,6 +267,7 @@ export default function App() {
     setExtraRootsText(options.extra_roots.join("\n"));
     setThemeChoice(loadTheme());
     setDraftUi(loadUiPrefs());
+    setDraftRecovery(loadRecoveryPrefs());
   }, [settingsOpen, options]);
 
   useEffect(() => {
@@ -276,6 +290,7 @@ export default function App() {
       const ui = loadUiPrefs();
       setDryRun(ui.default_dry_run);
       setUseTrash(ui.default_use_trash);
+      setCleanupParallelism(ui.cleanup_parallelism);
     })();
   }, []);
 
@@ -429,6 +444,7 @@ export default function App() {
           paths: pathsRequested,
           dry_run: dryRun,
           use_trash: useTrash,
+          cleanup_parallelism: cleanupParallelism,
         } satisfies CleanRequest,
       });
       setCleanResult(res);
@@ -489,6 +505,11 @@ export default function App() {
     }
   };
 
+  const applyRecoverySettings = () => {
+    setRecoveryPrefs(draftRecovery);
+    setSettingsOpen(false);
+  };
+
   const applySettings = async () => {
     const roots = extraRootsText
       .split("\n")
@@ -508,11 +529,16 @@ export default function App() {
     };
     saveScanPatch(patch);
     saveTheme(themeChoice);
-    saveUiPrefs(draftUi);
+    const uiNext = {
+      ...draftUi,
+      cleanup_parallelism: clampCleanupParallelism(draftUi.cleanup_parallelism),
+    };
+    saveUiPrefs(uiNext);
     const base = await invoke<ScanOptions>("default_scan_options");
     setOptions(mergeScanOptions(base, patch));
-    setDryRun(draftUi.default_dry_run);
-    setUseTrash(draftUi.default_use_trash);
+    setDryRun(uiNext.default_dry_run);
+    setUseTrash(uiNext.default_use_trash);
+    setCleanupParallelism(uiNext.cleanup_parallelism);
     setSettingsOpen(false);
   };
 
@@ -530,13 +556,21 @@ export default function App() {
       ? "Review what we found, then preview or run cleanup."
       : "Reclaim space from caches and leftovers — safely.";
 
+  const postScanLayout = Boolean(summary && !busy);
+  const recoveryLayout = appMode === "recovery";
+
   return (
-    <div className="flex min-h-full flex-col" style={{ background: "var(--bg)" }}>
+    <div
+      className={`flex flex-col ${postScanLayout || recoveryLayout ? "h-full max-h-full min-h-0 overflow-hidden" : "min-h-full"}`}
+      style={{ background: "var(--bg)" }}
+    >
       <header
         className="shrink-0 border-b shadow-sm"
         style={{ borderColor: "var(--border)", background: "var(--surface)" }}
       >
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-5 py-4">
+        <div
+          className={`mx-auto flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 ${postScanLayout || recoveryLayout ? "max-w-7xl" : "max-w-6xl"}`}
+        >
           <div className="flex min-w-0 items-start gap-3">
             <BrandLogo className="h-11 w-auto shrink-0" alt="" />
             <div className="min-w-0">
@@ -544,12 +578,40 @@ export default function App() {
                 {APP_DISPLAY_NAME}
               </h1>
               <p className="mt-0.5 text-sm leading-snug" style={{ color: "var(--muted)" }}>
-                {subtitle}
+                {recoveryLayout
+                  ? "Scan a folder read-only, then copy matches into a destination you choose."
+                  : subtitle}
               </p>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            {summary && !busy ? (
+            <nav
+              className="mr-1 flex flex-wrap gap-1 rounded-full p-1"
+              style={{ background: "var(--tab-bg)" }}
+              aria-label="Main mode"
+            >
+              {(
+                [
+                  ["cleanup", "Cleanup"],
+                  ["recovery", "File recovery"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setAppMode(id)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium transition sm:text-sm"
+                  style={{
+                    background: appMode === id ? "var(--tab-active)" : "transparent",
+                    color: appMode === id ? "var(--text)" : "var(--muted)",
+                    boxShadow: appMode === id ? "var(--shadow)" : "none",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+            {summary && !busy && appMode === "cleanup" ? (
               <button
                 type="button"
                 disabled={!options}
@@ -574,7 +636,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                setSettingsPanel("preferences");
+                setSettingsPanel(appMode === "recovery" ? "recovery" : "preferences");
                 setSettingsOpen(true);
               }}
               className="rounded-full border px-4 py-2 text-sm font-medium shadow-sm transition hover:opacity-90"
@@ -610,6 +672,7 @@ export default function App() {
                 {(
                   [
                     ["preferences", "Preferences"],
+                    ["recovery", "File recovery"],
                     ["help", "Help"],
                     ["about", "About"],
                   ] as const
@@ -634,13 +697,20 @@ export default function App() {
             <h2 id="settings-dialog-title" className="mt-5 text-lg font-semibold" style={{ color: "var(--text)" }}>
               {settingsPanel === "preferences"
                 ? "Preferences"
-                : settingsPanel === "help"
-                  ? "Help"
-                  : "About"}
+                : settingsPanel === "recovery"
+                  ? "File recovery"
+                  : settingsPanel === "help"
+                    ? "Help"
+                    : "About"}
             </h2>
             {settingsPanel === "preferences" ? (
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
                 Changes apply the next time you scan or clean.
+              </p>
+            ) : null}
+            {settingsPanel === "recovery" ? (
+              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                Defaults for recovery scans and the output folder dialog.
               </p>
             ) : null}
 
@@ -825,8 +895,103 @@ export default function App() {
                   />
                   <span style={{ color: "var(--muted)" }}>Prefer Move to Trash</span>
                 </label>
+                <div className="mt-4">
+                  <label className="block font-medium" style={{ color: "var(--text)" }}>
+                    Cleanup parallelism
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={CLEANUP_PARALLELISM_MAX}
+                    className={`mt-1 ${fieldClass()}`}
+                    style={inputStyle}
+                    value={draftUi.cleanup_parallelism ?? 4}
+                    onChange={(e) =>
+                      setDraftUi({
+                        ...draftUi,
+                        cleanup_parallelism: clampCleanupParallelism(Number(e.target.value)),
+                      })
+                    }
+                  />
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
+                    How many paths to delete or trash at once (1–{CLEANUP_PARALLELISM_MAX}). Recommended default is 4
+                    — higher values can speed large cleanups but may stress disk, Trash, or the OS; 1 is fully
+                    sequential.
+                  </p>
+                </div>
               </div>
             </div>
+            ) : null}
+
+            {settingsPanel === "recovery" ? (
+              <div className="mt-6 space-y-5 text-sm">
+                <div>
+                  <label className="block font-medium" style={{ color: "var(--text)" }}>
+                    Default scan mode
+                  </label>
+                  <select
+                    className={`mt-1 ${fieldClass()}`}
+                    style={inputStyle}
+                    value={draftRecovery.default_mode}
+                    onChange={(e) =>
+                      setDraftRecovery({
+                        ...draftRecovery,
+                        default_mode: e.target.value as "quick" | "deep",
+                      })
+                    }
+                  >
+                    <option value="quick">Quick (metadata + magic)</option>
+                    <option value="deep">Deep (carve first 16 MiB)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-medium" style={{ color: "var(--text)" }}>
+                    Max files per scan
+                  </label>
+                  <input
+                    type="number"
+                    min={1000}
+                    max={500000}
+                    step={1000}
+                    className={`mt-1 ${fieldClass()}`}
+                    style={inputStyle}
+                    value={draftRecovery.max_files}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setDraftRecovery({
+                        ...draftRecovery,
+                        max_files: Number.isFinite(n)
+                          ? Math.min(500_000, Math.max(1000, Math.round(n)))
+                          : 50_000,
+                      });
+                    }}
+                  />
+                  <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                    Upper bound on paths visited each run (stops early if the tree is larger).
+                  </p>
+                </div>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={draftRecovery.remember_output_folder}
+                    onChange={(e) =>
+                      setDraftRecovery({
+                        ...draftRecovery,
+                        remember_output_folder: e.target.checked,
+                      })
+                    }
+                  />
+                  <span style={{ color: "var(--muted)" }}>
+                    Remember last recovery output folder (folder dialog starts there next time).
+                  </span>
+                </label>
+                {draftRecovery.last_output_folder ? (
+                  <p className="break-all font-mono text-xs" style={{ color: "var(--mono-muted)" }}>
+                    Last folder: {draftRecovery.last_output_folder}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {settingsPanel === "help" ? (
@@ -855,6 +1020,10 @@ export default function App() {
                   <li>
                     Large lists are paged — use <strong style={{ color: "var(--text)" }}>Select all safe</strong>{" "}
                     or row clicks to build your selection, then run preview or cleanup.
+                  </li>
+                  <li>
+                    <strong style={{ color: "var(--text)" }}>File recovery</strong> uses read-only scans and copies
+                    into a folder you choose — defaults live under Settings → File recovery.
                   </li>
                 </ul>
               </div>
@@ -895,6 +1064,25 @@ export default function App() {
                     Save
                   </button>
                 </>
+              ) : settingsPanel === "recovery" ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-full px-4 py-2 text-sm font-medium"
+                    style={{ color: "var(--muted)" }}
+                    onClick={() => setSettingsOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full px-5 py-2 text-sm font-semibold text-[var(--btn-primary-text)]"
+                    style={{ background: "var(--accent)" }}
+                    onClick={applyRecoverySettings}
+                  >
+                    Save
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
@@ -910,8 +1098,17 @@ export default function App() {
         </div>
       ) : null}
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-8 pb-16">
-        {error ? (
+      <main
+        className={`mx-auto flex w-full flex-1 flex-col min-h-0 ${
+          recoveryLayout
+            ? "max-w-7xl overflow-hidden px-3 py-2 pb-3 sm:px-4 sm:py-3"
+            : postScanLayout
+              ? "max-w-7xl overflow-hidden px-3 py-2 pb-3 sm:px-4 sm:py-3"
+              : "max-w-6xl justify-center overflow-y-auto px-5 py-10 sm:px-8 sm:py-12"
+        }`}
+      >
+        {recoveryLayout ? <RecoveryView /> : null}
+        {!recoveryLayout && error ? (
           <div
             className="mb-8 rounded-2xl border p-4 text-sm"
             style={{
@@ -925,8 +1122,8 @@ export default function App() {
           </div>
         ) : null}
 
-        {busy ? (
-          <section className="mx-auto max-w-lg space-y-6" aria-busy="true" aria-live="polite">
+        {!recoveryLayout && busy ? (
+          <section className="mx-auto w-full max-w-xl space-y-6 lg:max-w-2xl" aria-busy="true" aria-live="polite">
             <div className="text-center">
               {sectionHeading("In progress")}
               <p className="mt-2 text-lg font-medium" style={{ color: "var(--text)" }}>
@@ -977,22 +1174,39 @@ export default function App() {
           </section>
         ) : null}
 
-        {!busy && !summary ? (
-          <section className="space-y-8">
-            <div className="mx-auto max-w-xl space-y-2 text-center">
-              {sectionHeading("Before you start")}
-              <p className="text-[15px] leading-relaxed" style={{ color: "var(--muted)" }}>
-                We look for caches, build artifacts, and similar junk — not your personal files unless
-                you change scope in Settings.
-              </p>
+        {!recoveryLayout && !busy && !summary ? (
+          <section className="grid w-full gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
+            <div className="flex flex-col gap-8">
+              <div className="space-y-4 text-center lg:text-left">
+                {sectionHeading("Before you start")}
+                <p className="text-base leading-relaxed sm:text-lg" style={{ color: "var(--muted)" }}>
+                  We look for caches, build artifacts, and similar junk — not your personal files unless
+                  you change scope in Settings.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center gap-4 lg:items-start">
+                <button
+                  type="button"
+                  disabled={!options}
+                  onClick={() => void runScan()}
+                  className="min-h-[52px] w-full max-w-sm rounded-full px-8 text-[17px] font-semibold text-[var(--btn-primary-text)] shadow-md transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-45 sm:max-w-md lg:w-auto lg:min-w-[280px]"
+                  style={{ background: "var(--accent)" }}
+                >
+                  Start scan
+                </button>
+                <p className="max-w-md text-center text-sm leading-relaxed lg:text-left" style={{ color: "var(--muted)" }}>
+                  Large homes can take a while; partial results appear if the time budget is reached.
+                </p>
+              </div>
             </div>
 
             <div
-              className="rounded-2xl border p-6 shadow-sm"
+              className="rounded-2xl border p-6 shadow-sm sm:p-8"
               style={{ borderColor: "var(--border)", background: "var(--surface)" }}
             >
               {sectionHeading("How it works")}
-              <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-relaxed" style={{ color: "var(--text)" }}>
+              <ol className="mt-5 list-decimal space-y-4 pl-5 text-[15px] leading-relaxed" style={{ color: "var(--text)" }}>
                 <li style={{ color: "var(--muted)" }}>
                   <span style={{ color: "var(--text)" }}>Scan</span> — map reclaimable paths using your
                   scope and time budget.
@@ -1015,7 +1229,7 @@ export default function App() {
               </ol>
 
               <div
-                className="mt-6 rounded-xl border px-4 py-3 text-sm"
+                className="mt-8 rounded-xl border px-4 py-4 text-sm sm:text-[15px]"
                 style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
               >
                 <p style={{ color: "var(--text)" }}>
@@ -1024,7 +1238,7 @@ export default function App() {
                 </p>
                 <button
                   type="button"
-                  className="mt-2 text-sm font-medium underline decoration-slate-400/60 underline-offset-2"
+                  className="mt-3 text-sm font-medium underline decoration-slate-400/60 underline-offset-2 sm:text-[15px]"
                   style={{ color: "var(--accent)" }}
                   onClick={() => {
                     setSettingsPanel("preferences");
@@ -1035,29 +1249,14 @@ export default function App() {
                 </button>
               </div>
             </div>
-
-            <div className="flex flex-col items-center gap-3">
-              <button
-                type="button"
-                disabled={!options}
-                onClick={() => void runScan()}
-                className="min-h-[52px] min-w-[260px] rounded-full px-8 text-[17px] font-semibold text-[var(--btn-primary-text)] shadow-md transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-45"
-                style={{ background: "var(--accent)" }}
-              >
-                Start scan
-              </button>
-              <p className="max-w-sm text-center text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                Large homes can take a while; partial results appear if the time budget is reached.
-              </p>
-            </div>
           </section>
         ) : null}
 
-        {summary ? (
-          <section className="space-y-10">
+        {!recoveryLayout && summary ? (
+          <section className="flex min-h-0 flex-1 flex-col gap-2">
             {summary.scan_stopped_reason ? (
               <div
-                className="rounded-xl border px-4 py-3 text-center text-sm leading-relaxed"
+                className="shrink-0 rounded-lg border px-3 py-2 text-center text-xs leading-snug sm:text-sm"
                 style={{
                   borderColor: "var(--border)",
                   background: "var(--surface-muted)",
@@ -1069,197 +1268,124 @@ export default function App() {
               </div>
             ) : null}
 
-            <div>
-              {sectionHeading("Overview")}
-              <div
-                className="mt-3 rounded-2xl border p-6 shadow-sm"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-              >
-                <p className="text-center text-sm" style={{ color: "var(--muted)" }}>
-                  Potentially reclaimable (safe + review)
-                </p>
-                <p
-                  className="mt-1 text-center text-4xl font-semibold tracking-tight"
-                  style={{ color: "var(--text)" }}
-                >
-                  {formatBytes(mainReclaim)}
-                </p>
-                <p className="mt-1 text-center text-xs" style={{ color: "var(--muted)" }}>
-                  {summary.totals.file_count.toLocaleString()} items in this scan
-                </p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <div
-                    className="rounded-2xl px-4 py-3 text-center"
-                    style={{ background: "var(--risk-safe-bg)" }}
-                  >
-                    <p className="text-xs font-medium" style={{ color: "var(--risk-safe-text)" }}>
-                      Usually safe
-                    </p>
-                    <p className="mt-1 text-lg font-semibold" style={{ color: "var(--risk-safe-text)" }}>
-                      {formatBytes(summary.totals.safe_bytes)}
-                    </p>
-                    <p className="mt-1 text-[11px] opacity-90" style={{ color: "var(--risk-safe-text)" }}>
-                      {summary.safe_len.toLocaleString()} paths
-                    </p>
-                  </div>
-                  <div
-                    className="rounded-2xl px-4 py-3 text-center"
-                    style={{ background: "var(--risk-review-bg)" }}
-                  >
-                    <p className="text-xs font-medium" style={{ color: "var(--risk-review-text)" }}>
-                      Check first
-                    </p>
-                    <p className="mt-1 text-lg font-semibold" style={{ color: "var(--risk-review-text)" }}>
-                      {formatBytes(summary.totals.review_bytes)}
-                    </p>
-                    <p className="mt-1 text-[11px] opacity-90" style={{ color: "var(--risk-review-text)" }}>
-                      {summary.review_len.toLocaleString()} paths
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              {sectionHeading("Browse & select")}
-              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                Filter the list, tap rows to toggle, or use shortcuts — then run cleanup below.
-              </p>
-              <div
-                className="mt-4 flex flex-wrap justify-center gap-2 rounded-2xl p-1.5 sm:justify-start"
-                style={{ background: "var(--tab-bg)" }}
-              >
-                {(
-                  [
-                    ["all", "Everything", summary.findings_len],
-                    ["safe", "Quick wins", summary.safe_len],
-                    ["review", "Needs review", summary.review_len],
-                  ] as const
-                ).map(([id, label, count]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => selectTab(id)}
-                    className="rounded-full px-3 py-2 text-left text-sm font-medium transition sm:px-4"
-                    style={{
-                      background: tab === id ? "var(--tab-active)" : "transparent",
-                      color: tab === id ? "var(--text)" : "var(--muted)",
-                      boxShadow: tab === id ? "var(--shadow)" : "none",
-                    }}
-                  >
-                    <span className="block sm:inline">{label}</span>
-                    <span className="mt-0.5 block text-xs opacity-80 sm:ml-1 sm:inline sm:text-sm">
-                      {count.toLocaleString()}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  {totalForFilter === 0
-                    ? "No items in this filter"
-                    : listLoading
-                      ? "Loading page…"
-                      : listRows.length === 0
-                        ? "No items on this page"
-                        : `Rows ${(listOffset + 1).toLocaleString()}–${(listOffset + listRows.length).toLocaleString()} of ${totalForFilter.toLocaleString()}`}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={!canPrevPage || listLoading}
-                    onClick={() => setListOffset((o) => Math.max(0, o - LIST_PAGE_SIZE))}
-                    className="rounded-full border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-                    style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                  >
-                    Previous page
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canNextPage || listLoading}
-                    onClick={() => setListOffset((o) => o + LIST_PAGE_SIZE)}
-                    className="rounded-full border px-3 py-1.5 text-sm font-medium disabled:opacity-40"
-                    style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                  >
-                    Next page
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3 max-h-[min(50vh,480px)] space-y-2 overflow-y-auto pr-1">
-                {listRows.map((f) => (
-                  <Row
-                    key={f.entry.path}
-                    f={f}
-                    selected={!!selected[f.entry.path]}
-                    onToggle={() => toggle(f.entry.path)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              {sectionHeading("Clean up")}
-              <div
-                className="mt-3 rounded-2xl border p-5 shadow-sm"
-                style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-              >
-                <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  {selectedPaths.length === 0
-                    ? "Nothing selected yet — pick items in the list or use a shortcut."
-                    : `${selectedPaths.length.toLocaleString()} path(s) will be included in the next action.`}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-                  <button
-                    type="button"
-                    onClick={selectVisiblePage}
-                    disabled={listRows.length === 0 || cleanBusy}
-                    className="text-sm font-medium disabled:opacity-40"
-                    style={{ color: "var(--accent)" }}
-                  >
-                    Select visible page
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void selectAllSafePaths()}
-                    disabled={summary.safe_len === 0 || bulkSafeBusy || cleanBusy}
-                    className="text-sm font-medium disabled:opacity-40"
-                    style={{ color: "var(--accent)" }}
-                    title="Selects every path classified as usually safe"
-                  >
-                    {bulkSafeBusy
-                      ? "Selecting all safe…"
-                      : `Select all safe (${summary.safe_len.toLocaleString()})`}
-                  </button>
-                </div>
+            <div className="results-layout min-h-0">
+              <div className="results-area-overview">
+                {sectionHeading("Overview")}
                 <div
-                  className="mt-5 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:flex-wrap sm:items-center"
-                  style={{ borderColor: "var(--border)" }}
+                  className="mt-1.5 rounded-xl border p-2.5 shadow-sm sm:p-3"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}
                 >
-                  <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-                    <input
-                      type="checkbox"
-                      checked={dryRun}
-                      disabled={cleanBusy}
-                      onChange={(e) => setDryRun(e.target.checked)}
-                    />
-                    Preview only (no deletion)
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--muted)" }}>
-                    <input
-                      type="checkbox"
-                      checked={useTrash}
-                      disabled={cleanBusy}
-                      onChange={(e) => setUseTrash(e.target.checked)}
-                    />
-                    Move to Trash when possible
-                  </label>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="min-w-0 text-center">
+                      <p className="text-[9px] font-medium uppercase tracking-wide sm:text-[10px]" style={{ color: "var(--muted)" }}>
+                        Reclaimable
+                      </p>
+                      <p
+                        className="truncate text-lg font-semibold tabular-nums sm:text-2xl"
+                        style={{ color: "var(--text)" }}
+                        title={formatBytes(mainReclaim)}
+                      >
+                        {formatBytes(mainReclaim)}
+                      </p>
+                      <p className="text-[10px] sm:text-[11px]" style={{ color: "var(--muted)" }}>
+                        {summary.totals.file_count.toLocaleString()} items
+                      </p>
+                    </div>
+                    <div
+                      className="min-w-0 rounded-lg px-2 py-1.5 text-center sm:rounded-xl sm:px-3 sm:py-2"
+                      style={{ background: "var(--risk-safe-bg)" }}
+                    >
+                      <p className="text-[9px] font-medium sm:text-[10px]" style={{ color: "var(--risk-safe-text)" }}>
+                        Usually safe
+                      </p>
+                      <p className="truncate text-sm font-semibold tabular-nums sm:text-base" style={{ color: "var(--risk-safe-text)" }}>
+                        {formatBytes(summary.totals.safe_bytes)}
+                      </p>
+                      <p className="text-[9px] opacity-90 sm:text-[10px]" style={{ color: "var(--risk-safe-text)" }}>
+                        {summary.safe_len.toLocaleString()} paths
+                      </p>
+                    </div>
+                    <div
+                      className="min-w-0 rounded-lg px-2 py-1.5 text-center sm:rounded-xl sm:px-3 sm:py-2"
+                      style={{ background: "var(--risk-review-bg)" }}
+                    >
+                      <p className="text-[9px] font-medium sm:text-[10px]" style={{ color: "var(--risk-review-text)" }}>
+                        Check first
+                      </p>
+                      <p className="truncate text-sm font-semibold tabular-nums sm:text-base" style={{ color: "var(--risk-review-text)" }}>
+                        {formatBytes(summary.totals.review_bytes)}
+                      </p>
+                      <p className="text-[9px] opacity-90 sm:text-[10px]" style={{ color: "var(--risk-review-text)" }}>
+                        {summary.review_len.toLocaleString()} paths
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="results-area-cleanup">
+                {sectionHeading("Clean up")}
+                <div
+                  className="flex min-h-0 flex-1 flex-col rounded-xl border p-3 shadow-sm sm:p-4"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                >
+                  <p className="text-xs leading-snug sm:text-sm" style={{ color: "var(--muted)" }}>
+                    {selectedPaths.length === 0
+                      ? "Nothing selected — pick rows in the list or use shortcuts."
+                      : `${selectedPaths.length.toLocaleString()} path(s) in the next action.`}
+                  </p>
+                  <div
+                    className="mt-2 grid grid-cols-2 gap-2 border-t pt-2 sm:flex sm:flex-wrap sm:gap-x-3"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={selectVisiblePage}
+                      disabled={listRows.length === 0 || cleanBusy}
+                      className="text-left text-xs font-medium disabled:opacity-40 sm:text-sm"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      Select visible page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void selectAllSafePaths()}
+                      disabled={summary.safe_len === 0 || bulkSafeBusy || cleanBusy}
+                      className="text-left text-xs font-medium disabled:opacity-40 sm:text-sm"
+                      style={{ color: "var(--accent)" }}
+                      title="Selects every path classified as usually safe"
+                    >
+                      {bulkSafeBusy ? "Selecting all safe…" : `All safe (${summary.safe_len.toLocaleString()})`}
+                    </button>
+                  </div>
+                  <div
+                    className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm" style={{ color: "var(--muted)" }}>
+                      <input
+                        type="checkbox"
+                        checked={dryRun}
+                        disabled={cleanBusy}
+                        onChange={(e) => setDryRun(e.target.checked)}
+                      />
+                      Preview only
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-xs sm:text-sm" style={{ color: "var(--muted)" }}>
+                      <input
+                        type="checkbox"
+                        checked={useTrash}
+                        disabled={cleanBusy}
+                        onChange={(e) => setUseTrash(e.target.checked)}
+                      />
+                      Trash when possible
+                    </label>
+                  </div>
                   <button
                     type="button"
                     onClick={() => void runClean()}
                     disabled={selectedPaths.length === 0 || cleanBusy}
-                    className={`sm:ml-auto rounded-full px-6 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-40 ${
+                    className={`mt-3 w-full rounded-full px-4 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:pointer-events-none disabled:opacity-40 lg:w-auto lg:self-end ${
                       dryRun ? "bg-[var(--accent)]" : "bg-[var(--btn-clean-bg)]"
                     } text-[var(--btn-primary-text)]`}
                   >
@@ -1271,90 +1397,176 @@ export default function App() {
                         ? "Run preview"
                         : "Clean up"}
                   </button>
-                </div>
-                {cleanBusy ? (
-                  <div
-                    className="mt-4 rounded-xl border px-3 py-2"
-                    style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
-                  >
-                    <p className="text-xs font-medium" style={{ color: "var(--text)" }}>
-                      {!cleanProgress
-                        ? `Starting cleanup for ${selectedPaths.length.toLocaleString()} selected path(s)…`
-                        : cleanProgress.status === "preparing"
-                          ? `Merging ${cleanProgress.total.toLocaleString()} selected path(s) into delete operations…`
-                          : cleanProgress.status === "starting"
-                            ? "Preparing batch (you may be prompted once for Trash access)…"
-                            : cleanProgress.total === 0
-                              ? "Nothing to process."
-                              : cleanProgress.status === "working"
-                                ? `Deleting operation ${cleanProgress.current} of ${cleanProgress.total}…`
-                                : cleanProgress.status === "ok"
-                                  ? `Completed ${cleanProgress.current} of ${cleanProgress.total}`
-                                  : cleanProgress.status === "failed"
-                                    ? `Could not remove ${cleanProgress.current} of ${cleanProgress.total}`
-                                    : cleanProgress.status === "missing"
-                                      ? `Already gone (${cleanProgress.current} of ${cleanProgress.total})`
-                                      : `${cleanProgress.status} (${cleanProgress.current}/${cleanProgress.total})`}
+                  {cleanBusy ? (
+                    <div
+                      className="mt-2 rounded-lg border px-2 py-1.5"
+                      style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
+                    >
+                      <p className="text-[11px] font-medium leading-snug" style={{ color: "var(--text)" }}>
+                        {!cleanProgress
+                          ? `Starting cleanup for ${selectedPaths.length.toLocaleString()} path(s)…`
+                          : cleanProgress.status === "preparing"
+                            ? `Merging ${cleanProgress.total.toLocaleString()} path(s)…`
+                            : cleanProgress.status === "starting"
+                              ? "Preparing batch…"
+                              : cleanProgress.total === 0
+                                ? "Nothing to process."
+                                : cleanProgress.status === "working"
+                                  ? `Deleting ${cleanProgress.current} / ${cleanProgress.total}…`
+                                  : cleanProgress.status === "ok"
+                                    ? `Done ${cleanProgress.current} / ${cleanProgress.total}`
+                                    : cleanProgress.status === "failed"
+                                      ? `Failed ${cleanProgress.current} / ${cleanProgress.total}`
+                                      : cleanProgress.status === "missing"
+                                        ? `Already gone (${cleanProgress.current}/${cleanProgress.total})`
+                                        : `${cleanProgress.status} (${cleanProgress.current}/${cleanProgress.total})`}
+                      </p>
+                      {cleanProgress?.path ? (
+                        <p className="mt-0.5 truncate font-mono text-[10px]" style={{ color: "var(--mono-muted)" }}>
+                          {cleanProgress.path}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {cleanResult ? (
+                    <p
+                      className="mt-2 border-t pt-2 text-xs leading-snug sm:text-sm"
+                      style={{ borderColor: "var(--border)", color: "var(--muted)" }}
+                    >
+                      {cleanResult.dry_run ? "Preview: " : "Done: "}
+                      {cleanResult.removed_paths.length} location(s)
+                      {cleanResult.selected_path_count != null &&
+                      cleanResult.operation_count != null &&
+                      cleanResult.selected_path_count > cleanResult.operation_count
+                        ? ` (merged ${cleanResult.selected_path_count.toLocaleString()} → ${cleanResult.operation_count.toLocaleString()} ops)`
+                        : ""}
+                      , ~{formatBytes(cleanResult.bytes_freed_estimate)}.
+                      {cleanResult.failed.length > 0 ? ` ${cleanResult.failed.length} failed.` : ""}
                     </p>
-                    {cleanProgress?.path ? (
-                      <p className="mt-1 truncate font-mono text-[11px]" style={{ color: "var(--mono-muted)" }}>
-                        {cleanProgress.path}
+                  ) : null}
+                </div>
+
+                <details
+                  className="shrink-0 rounded-xl border p-2.5 shadow-sm sm:p-3"
+                  style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                >
+                  <summary className="cursor-pointer list-none text-xs font-semibold sm:text-sm" style={{ color: "var(--text)" }}>
+                    Large files & duplicates
+                  </summary>
+                  <p className="mt-1 text-[10px] leading-snug sm:text-xs" style={{ color: "var(--muted)" }}>
+                    Largest paths from this scan; optional duplicate check.
+                  </p>
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      disabled={dupBusy}
+                      onClick={() => void runDupes()}
+                      className="rounded-full border px-3 py-1.5 text-xs font-medium disabled:opacity-40 sm:text-sm"
+                      style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                    >
+                      {dupBusy ? "Working…" : "Find duplicate large files"}
+                    </button>
+                    <ul className="mt-2 max-h-24 space-y-0.5 overflow-y-auto text-[10px] sm:max-h-28 sm:text-xs" style={{ color: "var(--muted)" }}>
+                      {summary.large_files.slice(0, 12).map((f) => (
+                        <li key={f.entry.path} className="truncate font-mono">
+                          {formatBytes(f.entry.size_bytes)} — {f.entry.path}
+                        </li>
+                      ))}
+                    </ul>
+                    {dupes && dupes.length > 0 ? (
+                      <p className="mt-1 text-[10px] sm:text-xs" style={{ color: "var(--muted)" }}>
+                        {dupes.length} duplicate group(s).
                       </p>
                     ) : null}
                   </div>
-                ) : null}
-                {cleanResult ? (
-                  <p className="mt-4 border-t pt-4 text-sm leading-relaxed" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
-                    {cleanResult.dry_run ? "Preview: " : "Done: "}
-                    {cleanResult.removed_paths.length} location(s) affected
-                    {cleanResult.selected_path_count != null &&
-                    cleanResult.operation_count != null &&
-                    cleanResult.selected_path_count > cleanResult.operation_count
-                      ? ` (merged ${cleanResult.selected_path_count.toLocaleString()} selected paths into ${cleanResult.operation_count.toLocaleString()} operations)`
-                      : ""}
-                    , about {formatBytes(cleanResult.bytes_freed_estimate)}.
-                    {cleanResult.failed.length > 0
-                      ? ` ${cleanResult.failed.length} could not be processed.`
-                      : ""}
+                </details>
+              </div>
+
+              <div className="results-area-browse">
+                <div className="shrink-0 space-y-1.5">
+                  {sectionHeading("Browse & select")}
+                  <p className="text-[11px] leading-snug sm:text-xs lg:hidden" style={{ color: "var(--muted)" }}>
+                    Filter tabs and list — cleanup is above on small screens.
                   </p>
-                ) : null}
+                  <p className="hidden text-xs leading-snug lg:block" style={{ color: "var(--muted)" }}>
+                    Filter, toggle rows, paginate — only this list scrolls.
+                  </p>
+                  <div
+                    className="flex flex-wrap gap-1.5 rounded-xl p-1 sm:gap-2"
+                    style={{ background: "var(--tab-bg)" }}
+                  >
+                    {(
+                      [
+                        ["all", "Everything", summary.findings_len],
+                        ["safe", "Quick wins", summary.safe_len],
+                        ["review", "Needs review", summary.review_len],
+                      ] as const
+                    ).map(([id, label, count]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => selectTab(id)}
+                        className="rounded-full px-2.5 py-1.5 text-left text-xs font-medium transition sm:px-3 sm:text-sm"
+                        style={{
+                          background: tab === id ? "var(--tab-active)" : "transparent",
+                          color: tab === id ? "var(--text)" : "var(--muted)",
+                          boxShadow: tab === id ? "var(--shadow)" : "none",
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span className="ml-1 tabular-nums opacity-80">{count.toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10px] sm:text-xs" style={{ color: "var(--muted)" }}>
+                      {totalForFilter === 0
+                        ? "No items in this filter"
+                        : listLoading
+                          ? "Loading…"
+                          : listRows.length === 0
+                            ? "Empty page"
+                            : `${(listOffset + 1).toLocaleString()}–${(listOffset + listRows.length).toLocaleString()} of ${totalForFilter.toLocaleString()}`}
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        disabled={!canPrevPage || listLoading}
+                        onClick={() => setListOffset((o) => Math.max(0, o - LIST_PAGE_SIZE))}
+                        className="rounded-full border px-2.5 py-1 text-xs font-medium disabled:opacity-40 sm:px-3 sm:text-sm"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canNextPage || listLoading}
+                        onClick={() => setListOffset((o) => o + LIST_PAGE_SIZE)}
+                        className="rounded-full border px-2.5 py-1 text-xs font-medium disabled:opacity-40 sm:px-3 sm:text-sm"
+                        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className="mt-1.5 min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-lg border p-1.5 pr-1 sm:space-y-2 sm:p-2"
+                  style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
+                >
+                  {listRows.map((f) => (
+                    <Row
+                      key={f.entry.path}
+                      f={f}
+                      selected={!!selected[f.entry.path]}
+                      onToggle={() => toggle(f.entry.path)}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-
-            <details
-              className="rounded-2xl border p-5 shadow-sm"
-              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
-            >
-              <summary className="cursor-pointer list-none text-sm font-semibold" style={{ color: "var(--text)" }}>
-                Large files & duplicate finder
-              </summary>
-              <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                Largest files from this scan; optional duplicate check for big files only.
-              </p>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  disabled={dupBusy}
-                  onClick={() => void runDupes()}
-                  className="rounded-full border px-4 py-2 text-sm font-medium disabled:opacity-40"
-                  style={{ borderColor: "var(--border)", color: "var(--text)" }}
-                >
-                  {dupBusy ? "Working…" : "Find duplicate large files"}
-                </button>
-                <ul className="mt-3 max-h-36 space-y-1 overflow-y-auto text-xs" style={{ color: "var(--muted)" }}>
-                  {summary.large_files.slice(0, 12).map((f) => (
-                    <li key={f.entry.path} className="truncate font-mono">
-                      {formatBytes(f.entry.size_bytes)} — {f.entry.path}
-                    </li>
-                  ))}
-                </ul>
-                {dupes && dupes.length > 0 ? (
-                  <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-                    Found {dupes.length} duplicate group(s). Keep one copy of each.
-                  </p>
-                ) : null}
-              </div>
-            </details>
           </section>
         ) : null}
       </main>

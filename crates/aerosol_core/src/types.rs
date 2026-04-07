@@ -153,12 +153,25 @@ impl Default for ScanOptions {
     }
 }
 
+/// Default concurrent delete/trash jobs (see `CleanRequest::cleanup_parallelism`).
+pub const DEFAULT_CLEANUP_PARALLELISM: u32 = 50;
+
+/// Upper bound for `cleanup_parallelism` (UI and API clamp to this).
+pub const MAX_CLEANUP_PARALLELISM: u32 = 200;
+
+fn default_cleanup_parallelism() -> u32 {
+    DEFAULT_CLEANUP_PARALLELISM
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanRequest {
     pub paths: Vec<String>,
     pub dry_run: bool,
     /// If true, send to trash instead of permanent delete.
     pub use_trash: bool,
+    /// How many paths to delete/trash concurrently (1 = sequential). Clamped in the engine.
+    #[serde(default = "default_cleanup_parallelism")]
+    pub cleanup_parallelism: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

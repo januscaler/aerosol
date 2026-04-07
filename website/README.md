@@ -1,6 +1,6 @@
 # Aerosol marketing site & docs (VitePress)
 
-[VitePress](https://vitepress.dev/) powers the landing page, user manual, and comparison doc. Content lives in Markdown at the repo root of `website/`; theme tweaks live under `.vitepress/`.
+[VitePress](https://vitepress.dev/) powers the landing page, user manual, comparison doc, and blog (including **File recovery** updates). Content lives in Markdown at the repo root of `website/`; theme tweaks live under `.vitepress/`.
 
 **Canonical URLs**
 
@@ -51,6 +51,12 @@ npm run build
 ```
 
 Output: `website/.vitepress/dist/`. Test with `npm run preview`.
+
+Landing **screenshots** live in `public/screenshots/` (copies of repo-root `images/screen1.png`, `screen2.png`, and `screen3.png`). After updating those source files, refresh the copies:
+
+```bash
+npm run sync:screenshots
+```
 
 ## Download buttons
 

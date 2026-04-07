@@ -8,7 +8,8 @@
     "build": "vitepress build",
     "preview": "vitepress preview",
     "fetch:latest-release": "node scripts/fetch-latest-release.mjs",
-    "stub:latest-release": "node scripts/fetch-latest-release.mjs --stub"
+    "stub:latest-release": "node scripts/fetch-latest-release.mjs --stub",
+    "sync:screenshots": "mkdir -p public/screenshots && cp ../images/screen1.png ../images/screen2.png ../images/screen3.png public/screenshots/"
   },
   "devDependencies": {
     "vitepress": "^1.6.3",

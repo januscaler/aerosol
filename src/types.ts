@@ -93,10 +93,15 @@ export interface ScanOptions {
   max_entries_per_root: number;
 }
 
+/** Matches `aerosol_core::types::DEFAULT_CLEANUP_PARALLELISM`. */
+export const DEFAULT_CLEANUP_PARALLELISM = 4;
+
 export interface CleanRequest {
   paths: string[];
   dry_run: boolean;
   use_trash: boolean;
+  /** Concurrent delete/trash operations (1–1000; backend clamps). */
+  cleanup_parallelism: number;
 }
 
 export interface CleanResult {
@@ -129,4 +134,61 @@ export interface DuplicateGroup {
   size_bytes: number;
   hash_hex: string;
   paths: string[];
+}
+
+/** --- File recovery (`aerosol_recovery`) --- */
+
+export interface RecoveryVolumeInfo {
+  mountPoint: string;
+  name: string;
+  totalBytes: number;
+  availableBytes: number;
+  fileSystem: string;
+  isRemovable: boolean;
+}
+
+export type RecoveryScanMode = "quick" | "deep";
+
+export interface RecoveryScanOptions {
+  sourcePath: string;
+  mode: RecoveryScanMode;
+  enabledTypes: string[];
+  maxFiles?: number;
+}
+
+export type RecoveryCategory =
+  | "images"
+  | "videos"
+  | "archives"
+  | "documents"
+  | "code"
+  | "developer"
+  | "other";
+
+export interface RecoveryHit {
+  id: string;
+  path: string;
+  sizeBytes: number;
+  category: RecoveryCategory;
+  signatureId: string;
+  recoverabilityScore: number;
+  kind: string;
+  developerHint: string | null;
+}
+
+export interface RecoveryProgress {
+  phase: string;
+  filesScanned: number;
+  hitsFound: number;
+  message: string;
+}
+
+export interface RecoveryScanSummary {
+  hitsLen: number;
+  filesScanned: number;
+  durationMs: number;
+}
+
+export interface RecoveryScanOutcome {
+  summary: RecoveryScanSummary;
 }

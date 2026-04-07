@@ -1,6 +1,6 @@
 # Aerosol
 
-**Aerosol** is a desktop disk utility for **macOS**, **Windows**, and **Linux**. It scans common clutter (caches, logs, package managers, developer artifacts), classifies findings with **risk levels**, and lets you **preview** or **clean** in batches — with optional **Trash** instead of permanent delete. Everything runs **on your machine**; there is no cloud account or upload of your file list.
+**Aerosol** is a desktop disk utility for **macOS**, **Windows**, and **Linux**. It scans common clutter (caches, logs, package managers, developer artifacts), classifies findings with **risk levels**, and lets you **preview** or **clean** in batches — with optional **Trash** instead of permanent delete. A separate **File recovery** mode performs **read-only** scans of a folder you choose (including volume mount points), finds files by type signatures, supports **image and video previews**, and **copies** selections into a destination folder — without writing to the source tree. Everything runs **on your machine**; there is no cloud account or upload of your file list.
 
 - **Source:** [github.com/januscaler/aerosol](https://github.com/januscaler/aerosol)  
 - **Public docs / landing:** [aerosol.januscaler.com](https://aerosol.januscaler.com)
@@ -9,16 +9,25 @@
 | ------ | ----- |
 | UI     | [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) + [Tailwind CSS](https://tailwindcss.com/) + [Vite](https://vitejs.dev/) |
 | Shell  | [Tauri](https://tauri.app/) 2 |
-| Engine | Rust workspace: [`aerosol_core`](crates/aerosol_core), [`aerosol_cli`](crates/aerosol_cli), [`src-tauri`](src-tauri) |
+| Engine | Rust workspace: [`aerosol_core`](crates/aerosol_core), [`aerosol_recovery`](crates/aerosol_recovery), [`aerosol_cli`](crates/aerosol_cli), [`src-tauri`](src-tauri) |
 | Docs   | [VitePress](https://vitepress.dev/) site in [`website/`](website/) |
 
 ## Features
 
 - **Filters** — Browse all findings, **safe**, or **review** buckets; paginated lists for large scans.
 - **Cleanup** — Dry-run preview, **select all safe**, merged delete roots (fewer prompts), progress during deletion, optional **Move to Trash**.
+- **File recovery** — Second app mode: scan a path (typed, browsed, or volume shortcuts), **Quick** (metadata + magic) or **Deep** (adds carving in the first portion of each file), filter by type (PNG, JPEG, ZIP, PDF, MP4, SQLite, JSON), paginated hits, **previews** for images and videos, **recover** by copying to another folder. Carved hits are listed but not extracted yet. Not a raw-disk / undelete tool — it walks a directory tree you select.
 - **Plugins** — Built-in awareness of tools like Docker and Git; architecture supports more scanners.
 - **Large files & duplicates** — Surfaces big files from the scan; optional duplicate check for large files.
 - **CLI** — `aerosol` binary from the same engine (`cargo run -p aerosol_cli -- …` during development).
+
+## Screenshots
+
+| Overview (totals, safe vs review, filters) | Browse & select (paginated list, risk labels) | File recovery (hits, preview, recover) |
+| --- | --- | --- |
+| ![Aerosol scan overview](images/screen1.png) | ![Aerosol browse and select](images/screen2.png) | ![Aerosol file recovery](images/screen3.png) |
+
+Higher-resolution copies also ship with the marketing site under [`website/public/screenshots/`](website/public/screenshots/) for [aerosol.januscaler.com](https://aerosol.januscaler.com) — run `npm run sync:screenshots` from [`website/`](website/) after updating [`images/`](images/).
 
 ## Prerequisites
 

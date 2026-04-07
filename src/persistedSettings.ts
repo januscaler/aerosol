@@ -1,14 +1,69 @@
-import type { ScanOptions } from "./types";
+import type { RecoveryScanMode, ScanOptions } from "./types";
 
 const SCAN_KEY = "aerosol-scan-settings";
 const THEME_KEY = "aerosol-theme";
 const UI_KEY = "aerosol-ui-settings";
+const RECOVERY_KEY = "aerosol-recovery-settings";
+
+export const RECOVERY_SETTINGS_CHANGED = "aerosol-recovery-settings-changed";
+
+export interface RecoveryPrefs {
+  default_mode: RecoveryScanMode;
+  /** Upper bound on files walked per scan (matches backend cap). */
+  max_files: number;
+  remember_output_folder: boolean;
+  last_output_folder: string | null;
+}
+
+const DEFAULT_RECOVERY_PREFS: RecoveryPrefs = {
+  default_mode: "quick",
+  max_files: 50_000,
+  remember_output_folder: false,
+  last_output_folder: null,
+};
+
+export function loadRecoveryPrefs(): RecoveryPrefs {
+  try {
+    const raw = localStorage.getItem(RECOVERY_KEY);
+    if (!raw) return { ...DEFAULT_RECOVERY_PREFS };
+    return { ...DEFAULT_RECOVERY_PREFS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_RECOVERY_PREFS };
+  }
+}
+
+/** Replace all file-recovery preferences and notify listeners (e.g. RecoveryView). */
+export function setRecoveryPrefs(p: RecoveryPrefs) {
+  localStorage.setItem(RECOVERY_KEY, JSON.stringify(p));
+  window.dispatchEvent(new CustomEvent(RECOVERY_SETTINGS_CHANGED));
+}
+
+/** Merge a partial update into saved recovery preferences. */
+export function patchRecoveryPrefs(patch: Partial<RecoveryPrefs>) {
+  setRecoveryPrefs({ ...loadRecoveryPrefs(), ...patch });
+}
 
 export type ThemeChoice = "system" | "light" | "dark";
 
 export interface UiPrefs {
   default_dry_run: boolean;
   default_use_trash: boolean;
+  /** Parallel delete/trash jobs during cleanup (1–1000). Recommended default: 4. */
+  cleanup_parallelism: number;
+}
+
+const DEFAULT_UI: UiPrefs = {
+  default_dry_run: true,
+  default_use_trash: true,
+  cleanup_parallelism: 4,
+};
+
+/** Upper bound matches `aerosol_core::cleanup` MAX_CLEANUP_PARALLELISM. */
+export const CLEANUP_PARALLELISM_MAX = 1000;
+
+export function clampCleanupParallelism(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_UI.cleanup_parallelism;
+  return Math.min(CLEANUP_PARALLELISM_MAX, Math.max(1, Math.round(n)));
 }
 
 export type ScanSettingsPatch = Partial<
@@ -70,10 +125,17 @@ export function saveTheme(t: ThemeChoice) {
 export function loadUiPrefs(): UiPrefs {
   try {
     const raw = localStorage.getItem(UI_KEY);
-    if (!raw) return { default_dry_run: true, default_use_trash: true };
-    return { ...{ default_dry_run: true, default_use_trash: true }, ...JSON.parse(raw) };
+    if (!raw) return { ...DEFAULT_UI };
+    const parsed = JSON.parse(raw) as Partial<UiPrefs>;
+    return {
+      ...DEFAULT_UI,
+      ...parsed,
+      cleanup_parallelism: clampCleanupParallelism(
+        parsed.cleanup_parallelism ?? DEFAULT_UI.cleanup_parallelism,
+      ),
+    };
   } catch {
-    return { default_dry_run: true, default_use_trash: true };
+    return { ...DEFAULT_UI };
   }
 }
 

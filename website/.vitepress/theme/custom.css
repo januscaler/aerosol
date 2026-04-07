@@ -5,6 +5,112 @@
   --vp-c-brand-3: #2d7ab8;
 }
 
+/**
+ * Home hero — VitePress defaults use very large type (up to 56px headline, 24px tagline).
+ * Tighten for a calmer, more product-like landing page.
+ */
+.VPHomeHero .heading .name {
+  font-size: 1.125rem !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  max-width: 100% !important;
+}
+
+@media (min-width: 640px) {
+  .VPHomeHero .heading .name {
+    font-size: 1.1875rem !important;
+  }
+}
+
+.VPHomeHero .heading .text {
+  font-size: 1.375rem !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  margin-top: 0.5rem !important;
+  max-width: 20rem !important;
+}
+
+@media (min-width: 640px) {
+  .VPHomeHero .heading .text {
+    font-size: 1.5rem !important;
+    max-width: 24rem !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHomeHero .heading .text {
+    font-size: 1.625rem !important;
+    line-height: 1.28 !important;
+    max-width: 26rem !important;
+  }
+}
+
+.VPHomeHero .tagline {
+  font-size: 0.9375rem !important;
+  line-height: 1.65 !important;
+  font-weight: 400 !important;
+  max-width: 36rem !important;
+  padding-top: 0.75rem !important;
+  color: var(--vp-c-text-2) !important;
+}
+
+.VPHomeHero .tagline .hero-tagline-lead {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .VPHomeHero .tagline {
+    font-size: 1rem !important;
+    max-width: 40rem !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .VPHomeHero .tagline {
+    font-size: 1.03125rem !important;
+    max-width: 34rem !important;
+    padding-top: 0.875rem !important;
+  }
+}
+
+.VPHomeHero .actions {
+  padding-top: 1.25rem !important;
+}
+
+@media (min-width: 640px) {
+  .VPHomeHero .actions {
+    padding-top: 1.5rem !important;
+  }
+}
+
+/* Slightly reduce hero vertical padding */
+.VPHomeHero.VPHero {
+  padding-bottom: 2.5rem !important;
+}
+
+@media (min-width: 640px) {
+  .VPHomeHero.VPHero {
+    padding-bottom: 3rem !important;
+  }
+}
+
+/* Dark mode: soften the decorative circle behind the logo so it doesn’t read as a harsh white tile */
+.dark .VPHomeHero .image-bg {
+  opacity: 0.22;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--vp-c-brand-1) 35%, transparent) 0%,
+    transparent 70%
+  ) !important;
+}
+
+.dark .VPHomeHero .image-src img {
+  filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.35));
+}
+
 .vp-doc a {
   text-decoration: none;
 }
@@ -45,6 +151,71 @@
   margin-top: 1rem;
   font-size: 0.875rem;
   color: var(--vp-c-text-2);
+}
+
+/* Landing page screenshot grid (index.md) — use viewport width so previews stay legible */
+.home-preview-shots {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+  margin: 0.75rem 0 2rem;
+  margin-left: var(--vp-offset, calc(50% - 50vw));
+  margin-right: var(--vp-offset, calc(50% - 50vw));
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  width: auto;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .home-preview-shots {
+    gap: 1.5rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
+
+  /* Three screenshots: third row centered and a bit wider on two-column layouts */
+  .home-preview-shots p:nth-child(3):last-child {
+    grid-column: 1 / -1;
+    max-width: min(56rem, 100%);
+    justify-self: center;
+    width: 100%;
+  }
+}
+
+@media (min-width: 1100px) {
+  .home-preview-shots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.75rem;
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+
+  .home-preview-shots p:nth-child(3):last-child {
+    grid-column: auto;
+    max-width: none;
+    justify-self: stretch;
+  }
+}
+
+.home-preview-shots p {
+  margin: 0;
+  min-width: 0;
+}
+
+.home-preview-shots img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-divider);
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12);
+}
+
+.dark .home-preview-shots img {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .badge-suggested {

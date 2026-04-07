@@ -1,12 +1,12 @@
 ---
 title: Introducing Aerosol
-description: Aerosol is an open-source, local disk cleaner for macOS, Windows, and Linux — with risk-aware results and optional Trash instead of a single “clean now” button.
+description: Aerosol is an open-source, local disk cleaner for macOS, Windows, and Linux — with risk-aware cleanup, optional Trash, and a File recovery mode for read-only scans and copy-out recovery.
 date: 2026-04-01
 ---
 
 # Introducing Aerosol
 
-**Aerosol** is a desktop app for finding caches, logs, and developer clutter you can actually understand before you delete anything. It runs on **macOS** (Apple Silicon and Intel), **Windows**, and **Linux**, built with [Tauri](https://tauri.app/) so the UI stays fast and your file list never needs our servers.
+**Aerosol** is a desktop app for finding caches, logs, and developer clutter you can actually understand before you delete anything — and, in a separate **File recovery** mode, for **read-only** scans of a folder you pick, **previews** of images and videos, and **copying** matches to a safe output path. It runs on **macOS** (Apple Silicon and Intel), **Windows**, and **Linux**, built with [Tauri](https://tauri.app/) so the UI stays fast and your file list never needs our servers.
 
 ## Who it’s for
 
@@ -21,6 +21,7 @@ date: 2026-04-01
 | Transparency | Open source — scan rules and UI are on [GitHub](https://github.com/januscaler/aerosol). |
 | Control | You pick categories and paths; we don’t “optimize” your disk in secret. |
 | Safety | Items are grouped so **safe** junk is easier to separate from things that deserve a second look. |
+| File recovery | A dedicated mode walks a **directory tree** you choose, finds files by type signatures, and **never writes** to that source — only copies out to a folder you select. See the [blog post on recovery](/blog/file-recovery-mode). |
 
 ## Try it
 
