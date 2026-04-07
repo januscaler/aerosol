@@ -2,6 +2,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# VitePress `lastUpdated: true` shells out to `git`; node:*-alpine has no git → spawn git ENOENT.
+RUN apk add --no-cache git
+
 COPY package.json package-lock.json* ./
 RUN npm ci
 
